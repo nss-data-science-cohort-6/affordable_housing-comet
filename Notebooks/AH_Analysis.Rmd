@@ -3,16 +3,38 @@ title: "Affordable Housing Analysis"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
 ```{r}
-plot(cars)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(sf)
+```
+Lets read in all of the data provided to see what will be useful. 
+```{r}
+property_details <- read.csv(file = "../Data/property_details.csv")
+LIHTC <- read.csv(file = "../Data/LIHTC.csv")
+full_sales <- read.csv(file = "../Data/full_sales.csv")
+filtered_sales <- read.csv(file = "../Data/filtered_sales.csv")
+barnes <- read.csv(file = "../Data/barnes.csv")
+asssesments <- read.csv(file = "../Data/assessments.csv")
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+We need to split the latitude and longitude of the property_details data frame and add them back to the original data frame as new columns. 
+```{r}
+split_coord <- str_split(str_extract(string = property_details$centroid,pattern =  "(?<=\\().*?(?=\\))"),",", simplify = TRUE)
+property_lat_long <- rename(as_tibble(split_coord), LAT = V1, LONG = V2)
+property_details$LAT <- property_lat_long$LAT
+property_details$LONG <- property_lat_long$LONG
+```
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+Get point geometries for the properties and the LIH areas. 
+```{r}
+property_details_sf <- st_as_sf(property_details, coords = c("LAT", "LONG"), crs = 4326, agr = "constant")
+LIHTC_sf <- st_as_sf(LIHTC, coords = c("LATITUDE", "LONGITUDE"), crs = 4326, agr = "constant")
+```
+
+```{r}
+
+```
+
