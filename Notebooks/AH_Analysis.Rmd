@@ -1,0 +1,99 @@
+---
+title: "Affordable Housing Analysis"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(sf)
+library(units)
+```
+
+Lets read in some of the data provided to see what will be useful. 
+```{r}
+property_details <- read.csv(file = "../Data/property_details.csv")
+LIHTC <- read.csv(file = "../Data/LIHTC.csv")
+full_sales <- read.csv(file = "../Data/full_sales.csv")
+filtered_sales <- read.csv(file = "../Data/filtered_sales.csv")
+barnes <- read.csv(file = "../Data/barnes.csv")
+asssesments <- read.csv(file = "../Data/assessments.csv")
+```
+
+We need to split the latitude and longitude of the property_details data frame and add them back to the original data frame as new columns. 
+```{r}
+split_coord <- str_split(str_extract(string = property_details$centroid, pattern =  "(?<=\\().*?(?=\\))"), ",", simplify = TRUE)
+property_lat_long <- rename(as_tibble(split_coord), LAT = V2, LONG = V1)
+property_details$LAT <- property_lat_long$LAT
+property_details$LONG <- property_lat_long$LONG
+```
+
+
+Filter by LIH projects that were placed in service in the year 2000 or later. Barnes projects all were later than the year 2000. 
+```{r}
+#Extract year from HUD_ID column and add new column for year_in_service, then filter
+LIHTC <- LIHTC %>% 
+            mutate(year_in_service = strtoi(str_extract(HUD_ID, "\\d{4}"))) %>% 
+            filter(year_in_service >= 2000)
+```
+
+Get point geometries for the properties and the LIH areas(including the Barnes LIH projects from barnes.csv).
+```{r}
+property_details_sf <- st_as_sf(property_details,
+                                coords = c("LAT", "LONG"),
+                                crs = 4326, agr = "identity")
+
+LIHTC_sf <- st_as_sf(LIHTC, coords = c("LATITUDE", "LONGITUDE"), crs = 4326, agr = "identity") %>% 
+  select(PROJ_ADD, geometry) %>% 
+  rename(address = PROJ_ADD)
+
+barnes_sf <- st_as_sf(barnes, coords = c("lat", "lng"), crs = 4326, agr = "identity") %>% 
+  select(Street.Address, geometry) %>% 
+  rename(address = Street.Address)
+
+#Get all of the LIHTC and Barnes projects into 1 sf variable 
+all_LIH_projects_sf <-rbind(LIHTC_sf, barnes_sf)
+```
+
+
+1. Find the closest LIH development to each of the homes. Add new column with point geometry of the closest LIH project to property_details_sf data frame. 
+```{r}
+indeces_for_nearest_LIH <- st_nearest_feature(property_details_sf$geometry,
+                                              all_LIH_projects_sf$geometry,
+                                              check_crs = TRUE)
+
+property_details_sf$closest_LIH <- all_LIH_projects_sf$geometry[indeces_for_nearest_LIH]
+```
+
+
+2. Calculate the distance from each homes closest development in miles. 
+```{r}
+dis_from_LIH_meters <- st_distance(x = property_details_sf$geometry, 
+                                    y = property_details_sf$closest_LIH, 
+                                    by_element = TRUE, 
+                                    which = ifelse(isTRUE(st_is_longlat(property_details_sf$geometry)), "Great Circle", "Euclidean")
+                                    )
+
+property_details_sf$dis_from_LIH_miles <- drop_units(dis_from_LIH_meters/1609.34) #Meters in a Mile
+```
+
+3. Filter the homes down to those that are within one mile of an affordable housing development.
+```{r}
+property_details_sf <- property_details_sf %>% 
+                          filter(dis_from_LIH_miles < 1)
+```
+
+
+4. For each remaining home, calculate a new column called "group", which is defined according to the following rules. Hint: Use the case_when         function to do this.
+      "pre" - for homes where the distance is less than half a mile and whose sale date was 2-5 years prior to the input year
+      "mid" - for homes where the distance is less than half a mile and whose sale date was 0-2 years prior to the input year
+      "post" - for homes where the distance is less than half a mile and whose sale date was after the input year
+      "outside" - for homes where the distance is more than half a mile and whose sale date was no more than 5 years prior to the input year
+      "other" - All other rows
+    
+
+    
+
+
+
