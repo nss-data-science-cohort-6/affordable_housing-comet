@@ -92,29 +92,8 @@ property_details_sf <- property_details_sf %>%
       "outside" - for homes where the distance is more than half a mile and whose sale date was no more than 5 years prior to the input year
       "other" - All other rows
     
-```{r}
-#First get sell date info for all the properties in property_details_sf from filtered_sales by matching apn values in each DF and merging
-merged_property_sales <- merge(x = property_details_sf,
-                               y = filtered_sales,
-                               by = "apn"
-                              ) %>% 
-                                distinct()#Remove repeated data rows
-  
-```
+
     
 
-```{r}
-input_year = 2010 
-
-merged_property_sales %>% 
-                      mutate(
-                        group = case_when(
-                                          (dis_from_LIHTC_miles < 0.5 && ... ) ~ "pre",
-                                          (dis_from_LIHTC_miles < 0.5 && ... ) ~ "mid",
-                                          (dis_from_LIHTC_miles < 0.5 && ... ) ~ "post",
-                                          TRUE ~ "other"
-                                          )
-                            )
-```
 
 
