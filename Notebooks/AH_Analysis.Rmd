@@ -7,6 +7,7 @@ output: html_notebook
 library(dplyr)
 library(ggplot2)
 library(tidyverse)
+library(leaflet)
 library(sf)
 library(units)
 ```
@@ -37,6 +38,7 @@ LIHTC <- LIHTC %>%
             mutate(year_in_service = strtoi(str_extract(HUD_ID, "\\d{4}"))) %>% 
             filter(year_in_service >= 2000)
 ```
+
 
 Get point geometries for the properties and the LIH areas(including the Barnes LIH projects from barnes.csv).
 ```{r}
@@ -92,8 +94,40 @@ property_details_sf <- property_details_sf %>%
       "outside" - for homes where the distance is more than half a mile and whose sale date was no more than 5 years prior to the input year
       "other" - All other rows
     
+```{r}
+property_details_sf <- merge(property_details_sf, filtered_sales, by.x = 'apn')
+```
 
-    
+
+```{r}
+ property_details_sf <- property_details_sf %>%
+  mutate(
+    group = case_when(
+      (property_details_sf$dis_from_LIH_miles < 0.50) & 
+        (property_details_sf$ownerdate >= ('2014-01-01')) &
+        (property_details_sf$ownerdate <= ('2017-01-01')) ~ 'pre',
+      (property_details_sf$dis_from_LIH_miles < 0.50) & 
+        (property_details_sf$ownerdate >= ('2017-01-01')) & 
+        (property_details_sf$ownerdate >= ('2019-01-01')) ~ 'mid',
+      (property_details_sf$dis_from_LIH_miles < 0.50) & 
+        (property_details_sf$ownerdate >= ('2019-01-01')) ~ 'post',
+      (property_details_sf$dis_from_LIH_miles > 0.50) & 
+        (property_details_sf$ownerdate >= ('2014-01-01')) ~ 'outside',
+      TRUE ~ 'other'
+      
+    ))
+         
+```
+
+
+5. Filter out all rows whose group is "other".
+
+```{r}
+property_details_sf <- property_details_sf %>% 
+  filter(group != 'other')
+```
+
+6. Add an id column containing the id value for the development.
 
 
 
