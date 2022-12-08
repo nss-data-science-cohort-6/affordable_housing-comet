@@ -7,6 +7,7 @@ output: html_notebook
 library(dplyr)
 library(ggplot2)
 library(tidyverse)
+library(leaflet)
 library(sf)
 library(units)
 ```
@@ -29,7 +30,6 @@ property_details$LAT <- property_lat_long$LAT
 property_details$LONG <- property_lat_long$LONG
 ```
 
-
 Filter by LIH projects that were placed in service in the year 2000 or later. Barnes projects all were later than the year 2000. 
 ```{r}
 #Extract year from HUD_ID column and add new column for year_in_service, then filter
@@ -45,29 +45,30 @@ property_details_sf <- st_as_sf(property_details,
                                 crs = 4326, agr = "identity")
 
 LIHTC_sf <- st_as_sf(LIHTC, coords = c("LATITUDE", "LONGITUDE"), crs = 4326, agr = "identity") %>% 
-  select(PROJ_ADD, geometry) %>% 
-  rename(address = PROJ_ADD)
+  select(PROJ_ADD, geometry, YR_PIS) %>% 
+  rename(address = PROJ_ADD, year_in_place = YR_PIS)
 
 barnes_sf <- st_as_sf(barnes, coords = c("lat", "lng"), crs = 4326, agr = "identity") %>% 
-  select(Street.Address, geometry) %>% 
-  rename(address = Street.Address)
+  select(Street.Address, geometry, Barnes.Year) %>% 
+  rename(address = Street.Address, year_in_place = Barnes.Year)
 
 #Get all of the LIHTC and Barnes projects into 1 sf variable 
 all_LIH_projects_sf <-rbind(LIHTC_sf, barnes_sf)
 ```
 
 
-1. Find the closest LIH development to each of the homes. Add new column with point geometry of the closest LIH project to property_details_sf data frame. 
+1. Find the closest LIH development to each of the homes. Add new column with point geometry of the closest LIH project to property_details_sf data frame. Also add the year put in place for the LIH project.
 ```{r}
 indeces_for_nearest_LIH <- st_nearest_feature(property_details_sf$geometry,
                                               all_LIH_projects_sf$geometry,
                                               check_crs = TRUE)
 
 property_details_sf$closest_LIH <- all_LIH_projects_sf$geometry[indeces_for_nearest_LIH]
+property_details_sf$year_in_place <- all_LIH_projects_sf$year_in_place[indeces_for_nearest_LIH]
 ```
 
 
-2. Calculate the distance from each homes closest development in miles. 
+2. Calculate the distance from each homes closest development in miles. Also add the year put in place for the LIH project.
 ```{r}
 dis_from_LIH_meters <- st_distance(x = property_details_sf$geometry, 
                                     y = property_details_sf$closest_LIH, 
@@ -91,7 +92,62 @@ property_details_sf <- property_details_sf %>%
       "post" - for homes where the distance is less than half a mile and whose sale date was after the input year
       "outside" - for homes where the distance is more than half a mile and whose sale date was no more than 5 years prior to the input year
       "other" - All other rows
-    
+```{r}
+#Let filter the filtered sales by only latest sale date on each house (apn)
+filtered_sales <- filtered_sales %>% 
+                    group_by(apn) %>% 
+                    slice(which.max(as.Date(ownerdate, '%Y-%m-%d')))
+                    
+```
+
+
+```{r}
+property_details_sf <- merge(property_details_sf, filtered_sales, by.x = 'apn') 
+```
+
+```{r}
+property_details_sf$year_in_place <- paste(as.character(property_details_sf$year_in_place),"-01-01", sep = "")
+```
+
+```{r}
+#makes coumpund inequalty functions for use in next block
+source("compound_inequalities.R")
+```
+
+
+```{r}
+ property_details_sf <- property_details_sf %>%
+  mutate(
+    group = case_when(
+      (property_details_sf$dis_from_LIH_miles < 0.50) & 
+        ((-5*365) %<<=% (difftime(property_details_sf$ownerdate,property_details_sf$year_in_place, units = "days")) %<<=% (-2*365)) ~ 'pre',
+      
+      (property_details_sf$dis_from_LIH_miles < 0.50) & 
+        ((-2*365) %<<% (difftime(property_details_sf$ownerdate,property_details_sf$year_in_place, units = "days")) %<<=% 0) ~ 'mid',
+      
+      (property_details_sf$dis_from_LIH_miles < 0.50) & 
+        ((difftime(property_details_sf$ownerdate,property_details_sf$year_in_place, units = "days")) > 0) ~ 'post',
+      
+      (property_details_sf$dis_from_LIH_miles > 0.50) & 
+        ((difftime(property_details_sf$ownerdate,property_details_sf$year_in_place, units = "days")) >= (-5*365)) ~ 'outside',
+      
+      TRUE ~ 'other'
+      
+      )
+    )
+```
+
+5. Filter out all rows whose group is "other".
+```{r}
+property_details_sf <- property_details_sf %>% 
+  filter(group != 'other')
+```
+
+6. Add an id column containing the id value for the development.
+
+```{r}
+
+```
 
     
 
