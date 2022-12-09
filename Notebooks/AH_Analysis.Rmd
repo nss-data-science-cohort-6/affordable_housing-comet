@@ -110,7 +110,7 @@ property_details_sf$year_in_place <- paste(as.character(property_details_sf$year
 ```
 
 ```{r}
-#makes coumpund inequalty functions for use in next block
+#makes compound inequality functions for use in next block
 source("compound_inequalities.R")
 ```
 
