@@ -117,7 +117,7 @@ creating a tpost that is years sale occured after the houseing development
 ```{r}
 nearest_ah <- nearest_ah %>% 
   mutate(
-    tpost = if_else(group == 'post', ownerdate - year, NaN)
+    tpost = if_else(group == 'post', ownerdate - year, 0)
     )
 ```
 
@@ -127,6 +127,55 @@ nearest_ah <- nearest_ah %>%
   mutate(age = ownerdate - year_built) %>% 
   filter(age >= 0) %>% 
   drop_na(age)
+```
+
+Filter down to only sales that took place within the five years before or after the associated development was placed in service. Then build a linear model with target variable the sales amount using the following features:
+  
+  square_footage
+  age of home at time of sale
+  group
+  year
+  tract
+  
+How can you interpret the coefficients of this model?
+```{r}
+nearest_ah <- nearest_ah %>% 
+  filter( abs(ownerdate - year) <= 5 ) %>% 
+  distinct()
+```
+
+
+```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(group = factor(group), tract = factor(tract)) 
+simple_regression_model <- lm(amount ~ square_footage + age + relevel(group, ref = 'outside') + ownerdate + tpost + tract, data = nearest_ah)
+
+summary(simple_regression_model)
+```
+```{r}
+nearest_ah %>%
+  mutate(predicted = predict(simple_regression_model, newdata = nearest_ah)) %>%
+  ggplot(aes(x = amount, y = predicted)) +
+    geom_point(na.rm = TRUE)
+```
+```{r}
+
+
+simple_regression_model_log <- lm(log(amount) ~ square_footage + age + relevel(group, ref = 'outside') + ownerdate + tpost + tract , data = nearest_ah)
+
+summary(simple_regression_model_log)
+```
+
+
+
+```{r}
+nearest_ah %>%
+  mutate(predicted = predict(simple_regression_model_log, newdata = nearest_ah)) %>%
+  ggplot(aes(x = log(amount), y = predicted)) +
+    geom_point(na.rm = TRUE)
+```
+```{r}
+anova(simple_regression_model_log)
 ```
 
 
