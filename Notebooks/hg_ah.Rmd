@@ -14,22 +14,24 @@ library(units)
 
 ```{r}
 property_details <- read.csv(file = "../data/property_details.csv")
-LIHTC <- read.csv(file = "../data/LIHTC.csv")
+LIHTC <- read.csv(file = "../data/LIHTC_updated.csv")
 filtered_sales <- read.csv(file = "../data/filtered_sales.csv")
 barnes <- read.csv(file = "../data/barnes.csv")
 asssesments <- read.csv(file = "../data/assessments.csv")
 ```
 
-Filter barnes and LIHTC to cordnates and year put into services, so we can stack them.
+Filter barnes and LIHTC to cordnates and year put into services, so we can 
+stack them.
 ```{r}
 LIHTC <- LIHTC %>% 
-  select(YR_PIS, LATITUDE, LONGITUDE) %>% 
-  rename(year = YR_PIS, lat = LATITUDE, lng = LONGITUDE) %>% 
+  select(YR_PIS, LATITUDE, LONGITUDE, HUD_ID) %>% 
+  rename(id = HUD_ID, year = YR_PIS, lat = LATITUDE, lng = LONGITUDE) %>% 
   mutate(type = 'LIHTC')
 
 barnes <- barnes %>% 
   select(Barnes.Year, lat, lng) %>% 
-  rename(year = Barnes.Year) %>% 
+  mutate(bid = paste0('B', row_number())) %>% 
+  rename(id = bid, year = Barnes.Year) %>% 
   mutate(type = 'barnes')
 
 all_ah_info <- LIHTC %>% 
@@ -91,12 +93,6 @@ nearest_ah <- nearest_ah %>%
   filter(dist < 1)
 ```
 
-```{r}
-nearest_ah_df <- nearest_ah %>% 
-  st_drop_geometry() %>% 
-  select(-geometry)
-```
-
 For each remaining home, calculate a new column called "group", which is defined according to the following rules. Hint: Use the case_when function to do this.
   "pre" - for homes where the distance is less than half a mile and whose sale date was 2-5 years prior to the input year
   "mid" - for homes where the distance is less than half a mile and whose sale date was 0-2 years prior to the input year
@@ -104,7 +100,7 @@ For each remaining home, calculate a new column called "group", which is defined
   "outside" - for homes where the distance is more than half a mile and whose sale date was no more than 5 years prior to the input year
   "other" - All other rows
 ```{r}
-nearest_ah_df <- nearest_ah_df %>% 
+nearest_ah <- nearest_ah %>% 
   mutate(
     group = case_when(
     dist <= .5 & year - ownerdate >= 2 & year - ownerdate <= 5 ~ 'pre',
@@ -119,7 +115,7 @@ nearest_ah_df <- nearest_ah_df %>%
 
 creating a tpost that is years sale occured after the houseing development
 ```{r}
-nearest_ah_df <- nearest_ah_df %>% 
+nearest_ah <- nearest_ah %>% 
   mutate(
     tpost = if_else(group == 'post', ownerdate - year, NaN)
     )
@@ -127,7 +123,10 @@ nearest_ah_df <- nearest_ah_df %>%
 
 create an age column
 ```{r}
-nearest_ah_df <- nearest_ah_df %>% 
-  mutate(age = ownerdate - year_built)
+nearest_ah <- nearest_ah %>% 
+  mutate(age = ownerdate - year_built) %>% 
+  filter(age >= 0) %>% 
+  drop_na(age)
 ```
+
 
