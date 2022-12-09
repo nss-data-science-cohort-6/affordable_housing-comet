@@ -1,6 +1,6 @@
 #HTML files
 *.html
-
+*.nb
 #Data folder
 /Data
 

@@ -1,0 +1,133 @@
+---
+title: "hg_ah"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(sf)
+library(leaflet)
+library(htmltools)
+library(scales)
+library(units)
+```
+
+```{r}
+property_details <- read.csv(file = "../data/property_details.csv")
+LIHTC <- read.csv(file = "../data/LIHTC_updated.csv")
+filtered_sales <- read.csv(file = "../data/filtered_sales.csv")
+barnes <- read.csv(file = "../data/barnes.csv")
+asssesments <- read.csv(file = "../data/assessments.csv")
+```
+
+Filter barnes and LIHTC to cordnates and year put into services, so we can 
+stack them.
+```{r}
+LIHTC <- LIHTC %>% 
+  select(YR_PIS, LATITUDE, LONGITUDE, HUD_ID) %>% 
+  rename(id = HUD_ID, year = YR_PIS, lat = LATITUDE, lng = LONGITUDE) %>% 
+  mutate(type = 'LIHTC')
+
+barnes <- barnes %>% 
+  select(Barnes.Year, lat, lng) %>% 
+  mutate(bid = paste0('B', row_number())) %>% 
+  rename(id = bid, year = Barnes.Year) %>% 
+  mutate(type = 'barnes')
+
+all_ah_info <- LIHTC %>% 
+  bind_rows(barnes) %>% 
+  filter(year >= 2000 & year < 5000)
+```
+
+convert the sale date chr to sales year int
+```{r}
+filtered_sales$ownerdate <- str_sub(filtered_sales$ownerdate, 1, 4)
+```
+
+```{r}
+filtered_sales <- transform(filtered_sales, ownerdate = as.numeric(ownerdate))
+```
+
+Split the centroid column into lat and lng.
+```{r}
+property_details <- property_details %>% 
+  separate(centroid, c('lng', 'lat'), ',')
+
+property_details$lng <- str_remove(property_details$lng, '[(]')
+property_details$lat <- str_remove(property_details$lat, '[)]')
+```
+
+merge the property details with sales data
+```{r}
+property_details <- inner_join(filtered_sales, property_details, by = 'apn')
+```
+
+converting cords to a geometry
+```{r}
+property_details <- property_details %>% 
+  st_as_sf(coords = c("lat", "lng"), crs = 4326, agr = "identity") %>% 
+  rename(home_loc = geometry)
+
+all_ah_info <- all_ah_info %>% 
+  st_as_sf(coords = c("lat", "lng"), crs = 4326, agr = "identity")
+```
+
+find the nearest ah to each home.
+```{r}
+nearest_ah <- bind_cols(property_details, 
+          all_ah_info[st_nearest_feature(property_details, all_ah_info), ])
+```
+
+```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(dist = st_distance(nearest_ah$home_loc, nearest_ah$geometry, by_element = T))
+```
+
+```{r}
+nearest_ah$dist <- drop_units(nearest_ah$dist/1609.34) #convert to Mi
+```
+
+filtering down to 1 mi
+```{r}
+nearest_ah <- nearest_ah %>% 
+  filter(dist < 1)
+```
+
+For each remaining home, calculate a new column called "group", which is defined according to the following rules. Hint: Use the case_when function to do this.
+  "pre" - for homes where the distance is less than half a mile and whose sale date was 2-5 years prior to the input year
+  "mid" - for homes where the distance is less than half a mile and whose sale date was 0-2 years prior to the input year
+  "post" - for homes where the distance is less than half a mile and whose sale date was after the input year
+  "outside" - for homes where the distance is more than half a mile and whose sale date was no more than 5 years prior to the input year
+  "other" - All other rows
+```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(
+    group = case_when(
+    dist <= .5 & year - ownerdate >= 2 & year - ownerdate <= 5 ~ 'pre',
+    dist <= .5 & year - ownerdate < 2 & year - ownerdate == 0 ~ 'mid',
+    dist <= .5 & ownerdate - year > 0 ~ 'post',
+    dist > .5 & year - ownerdate <= 5 ~ 'outside',
+    T ~ 'other'
+    )
+  ) %>% 
+  filter(group != 'other')
+```
+
+creating a tpost that is years sale occured after the houseing development
+```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(
+    tpost = if_else(group == 'post', ownerdate - year, NaN)
+    )
+```
+
+create an age column
+```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(age = ownerdate - year_built) %>% 
+  filter(age >= 0) %>% 
+  drop_na(age)
+```
+
+
+
