@@ -117,7 +117,7 @@ creating a tpost that is years sale occured after the houseing development
 ```{r}
 nearest_ah <- nearest_ah %>% 
   mutate(
-    tpost = if_else(group == 'post', ownerdate - year, NaN)
+    tpost = if_else(group == 'post', ownerdate - year, 0)
     )
 ```
 
@@ -129,4 +129,61 @@ nearest_ah <- nearest_ah %>%
   drop_na(age)
 ```
 
+filter down to 5 years before or after
+```{r}
+nearest_ah <- nearest_ah %>% 
+  filter(year - ownerdate <= 5 & ownerdate - year <= 5) %>% 
+  distinct() 
+```
+
+Forming a liner model for the data
+```{r}
+simple_regression_model <- lm(amount ~ square_footage + age + group + ownerdate + tract, data = nearest_ah)
+
+summary(simple_regression_model)
+```
+
+```{r}
+nearest_ah %>%
+  mutate(predicted = predict(simple_regression_model, newdata = nearest_ah)) %>%
+  ggplot(aes(x = amount, y = predicted)) +
+    geom_point(na.rm = TRUE)
+```
+
+redoing the linear model but this time with the log of amount
+```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(group = factor(group), tract = factor(tract))
+
+
+simple_regression_model_log <- lm(log(amount) ~ square_footage + age + relevel(group, ref = 'outside') + ownerdate + tpost + tract, data = nearest_ah)
+
+summary(simple_regression_model_log)
+```
+
+```{r}
+nearest_ah %>%
+  mutate(predicted = predict(simple_regression_model_log, newdata = nearest_ah)) %>%
+  ggplot(aes(x = log(amount), y = predicted)) +
+    geom_point(na.rm = TRUE)
+```
+
+```{r}
+anova(simple_regression_model_log)
+```
+
+
+```{r}
+nearest_ah$land_area <- str_sub(nearest_ah$land_area, 1, 4)
+```
+
+```{r}
+nearest_ah <- transform(nearest_ah, land_area = as.numeric(land_area))
+```
+
+```{r}
+simple_regression_model_log_la <- lm(log(amount) ~ square_footage + age + group + ownerdate + tract + land_area, data = nearest_ah)
+
+summary(simple_regression_model_log_la)
+```
 
