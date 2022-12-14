@@ -7,11 +7,23 @@
 #    http://shiny.rstudio.com/
 #
 
-library(shiny)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
 
- 
+  data_filtered <- reactive({
+    
+    ah_id <- ah_address_and_ID %>% 
+              filter(address == input$ah_project_address) %>% 
+              select(ID)
+
+    data_filtered <- data %>% 
+      filter(id == ah_id)
+    
+  })
+  
+  output$filtered_table <- renderDataTable({
+    data_filtered()
+  })
 
 })

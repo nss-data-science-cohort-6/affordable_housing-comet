@@ -193,6 +193,7 @@ filtered_ah_data <- nearest_ah %>%
   select(-geometry)
 
 write.csv(filtered_ah_data, "affordable_housing_app/filtered_ah_data.csv", row.names = FALSE)
+
 ```
 
 

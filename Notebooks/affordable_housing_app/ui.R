@@ -7,9 +7,33 @@
 #    http://shiny.rstudio.com/
 #
 
-library(shiny)
 
 # Define UI for application that draws a histogram
 shinyUI(
+  
+  dashboardPage(
+    
+    dashboardHeader(title = "Affordable Housing Anaylsis"),
+    
+    dashboardSidebar(
+      
+      selectInput(
+        "ah_project_address",
+        "Select an AH project:",
+        choices = ah_address_and_ID$address
+      )
+      
+    ),
+    
+    
+    dashboardBody(
+      #geom_smooth for scatter of home prices, vertical line to show when ah project was put up 
+      
+      
+      fluidRow(
+        dataTableOutput("filtered_table")
+        )
+    )
+  )
   
 )
