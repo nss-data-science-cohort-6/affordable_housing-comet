@@ -143,6 +143,17 @@ nearest_ah <- nearest_ah %>%
   filter( abs(ownerdate - year) <= 5 ) %>% 
   distinct()
 ```
+We want to limit the data so that it doesn't include grouped home sales. These seems like large developments with multiple homes all groped into 1 sale. We figured we could limit the data based on outliers sale price amounts. By getting the IQR, multiplying by 1.5 and adding the 75th percentile of amount we can filter based on the upper limit of the sale prices. 
+```{r}
+IQR(nearest_ah$amount)*1.5
+
+quantile(nearest_ah$amount, probs = 0.75)
+```
+
+```{r}
+nearest_ah <- nearest_ah %>% 
+  filter(amount <= (10000000))
+```
 
 
 ```{r}
@@ -159,8 +170,6 @@ nearest_ah %>%
     geom_point(na.rm = TRUE)
 ```
 ```{r}
-
-
 simple_regression_model_log <- lm(log(amount) ~ square_footage + age + relevel(group, ref = 'outside') + ownerdate + tpost + tract , data = nearest_ah)
 
 summary(simple_regression_model_log)
@@ -174,8 +183,16 @@ nearest_ah %>%
   ggplot(aes(x = log(amount), y = predicted)) +
     geom_point(na.rm = TRUE)
 ```
+Split the nearest_ah to csv file and geometry .shp file
 ```{r}
-anova(simple_regression_model_log)
+geometries <- nearest_ah %>% 
+  select(c(home_loc,geometry))
+
+filtered_ah_data <- nearest_ah %>% 
+  st_drop_geometry() %>% 
+  select(-geometry)
+
+write.csv(filtered_ah_data, "affordable_housing_app/filtered_ah_data.csv", row.names = FALSE)
 ```
 
 
