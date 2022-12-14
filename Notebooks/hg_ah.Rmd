@@ -133,11 +133,19 @@ filter down to 5 years before or after
 ```{r}
 nearest_ah <- nearest_ah %>% 
   filter(year - ownerdate <= 5 & ownerdate - year <= 5) %>% 
-  distinct() 
+  distinct() %>% 
+  filter(amount <= 10000000)
+```
+
+```{r}
+#quantile(nearest_ah$amount, probs = .75) + (IQR(nearest_ah$amount) * 1.5)
 ```
 
 Forming a liner model for the data
 ```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(group = factor(group), tract = factor(tract))
+
 simple_regression_model <- lm(amount ~ square_footage + age + group + ownerdate + tract, data = nearest_ah)
 
 summary(simple_regression_model)
@@ -152,10 +160,6 @@ nearest_ah %>%
 
 redoing the linear model but this time with the log of amount
 ```{r}
-nearest_ah <- nearest_ah %>% 
-  mutate(group = factor(group), tract = factor(tract))
-
-
 simple_regression_model_log <- lm(log(amount) ~ square_footage + age + relevel(group, ref = 'outside') + ownerdate + tpost + tract, data = nearest_ah)
 
 summary(simple_regression_model_log)
@@ -170,6 +174,10 @@ nearest_ah %>%
 
 ```{r}
 anova(simple_regression_model_log)
+```
+
+```{r}
+st_write(nearest_ah, "../data/filtered_ah.csv", row.names = F)
 ```
 
 
