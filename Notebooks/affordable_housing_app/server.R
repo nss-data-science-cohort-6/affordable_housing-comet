@@ -18,12 +18,32 @@ shinyServer(function(input, output) {
               select(ID)
 
     data_filtered <- data %>% 
-      filter(id == ah_id)
+      filter(id == ah_id[[1,1]])
     
   })
+  
   
   output$filtered_table <- renderDataTable({
     data_filtered()
   })
+  
+  output$graph_1 <- renderPlot({
+    
+      data_filtered() %>% 
+      group_by(ownerdate, group) %>% 
+      summarise(median_amt = median(amount)) %>% 
+      ggplot(aes(x = ownerdate, y = median_amt, color = group))+
+        geom_line()
+  })
 
+  
+  output$distPlot <- renderPlot({
+    
+    data_filtered() %>% 
+      ggplot(aes(x = amount)) +
+      geom_histogram(bins = input$bins) +
+      labs(title = paste('Distribution of Home sale price for', input$ah_project_address))
+    
+  })
+  
 })

@@ -143,12 +143,8 @@ nearest_ah <- nearest_ah %>%
   filter( abs(ownerdate - year) <= 5 ) %>% 
   distinct()
 ```
-We want to limit the data so that it doesn't include grouped home sales. These seems like large developments with multiple homes all groped into 1 sale. We figured we could limit the data based on outliers sale price amounts. By getting the IQR, multiplying by 1.5 and adding the 75th percentile of amount we can filter based on the upper limit of the sale prices. 
-```{r}
-IQR(nearest_ah$amount)*1.5
 
-quantile(nearest_ah$amount, probs = 0.75)
-```
+
 
 ```{r}
 nearest_ah <- nearest_ah %>% 
