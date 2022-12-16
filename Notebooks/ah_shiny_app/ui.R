@@ -5,12 +5,29 @@ shinyUI(
       title = "Affordable Housing Data"
     ),
     
-    dashboardSidebar(),
+    dashboardSidebar(
+      selectInput(
+        "ah",
+        "Select an Affordable Housing Unit",
+        choices = c('All',
+                    ah_info %>% 
+                      pull(id) %>% 
+                      unique() %>% 
+                      sort()
+                    )
+        )
+    ),
     
     dashboardBody(
       
       fluidRow(
-        dataTableOutput('filteredTable')
+        dataTableOutput('filteredahTable')
+      ),
+      fluidRow(
+        dataTableOutput('filteredhouseTable')
+      ),
+      fluidRow(
+        plotOutput('scatterPlot')
       )
     )
   )

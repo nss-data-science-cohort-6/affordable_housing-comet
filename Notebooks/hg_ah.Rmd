@@ -17,8 +17,47 @@ property_details <- read.csv(file = "../data/property_details.csv")
 LIHTC <- read.csv(file = "../data/LIHTC_updated.csv")
 filtered_sales <- read.csv(file = "../data/filtered_sales.csv")
 barnes <- read.csv(file = "../data/barnes.csv")
-asssesments <- read.csv(file = "../data/assessments.csv")
+#asssesments <- read.csv(file = "../data/assessments.csv")
 ```
+
+```{r}
+date <- filtered_sales %>% 
+  distinct() %>% 
+  select(apn, ownerdate) %>% 
+  rename(date = ownerdate)
+```
+
+```{r}
+date$datetime <- as.POSIXct(date$date)
+```
+
+```{r}
+date <- date %>% 
+  select(apn, datetime) %>% 
+  rename(date = datetime)
+```
+
+```{r}
+LIHTC <- LIHTC %>% 
+  select(HUD_ID, YR_PIS, PROJ_ADD, PROJ_CTY, PROJ_ZIP) %>% 
+  rename(id = HUD_ID, year = YR_PIS, address = PROJ_ADD, city = PROJ_CTY, zipcode = PROJ_ZIP) %>% 
+  mutate(type = 'LIHTC')
+
+barnes <- barnes %>% 
+  mutate(id = paste0('B', row_number())) %>% 
+  select(id, Barnes.Year, Street.Address, City, Zip.Code) %>% 
+  rename(id = id, year = Barnes.Year, address = Street.Address, city = City, zipcode = Zip.Code) %>% 
+  mutate(type = 'barnes')
+
+all_ah_info <- LIHTC %>% 
+  bind_rows(barnes) %>% 
+  filter(year >= 2000 & year < 5000)
+```
+
+```{r}
+write.csv(all_ah_info, "../data/ah_info.csv", row.names = F)
+```
+
 
 Filter barnes and LIHTC to cordnates and year put into services, so we can 
 stack them.
@@ -41,11 +80,20 @@ all_ah_info <- LIHTC %>%
 
 convert the sale date chr to sales year int
 ```{r}
-filtered_sales$ownerdate <- str_sub(filtered_sales$ownerdate, 1, 4)
+filtered_sales$year_of_sale <- str_sub(filtered_sales$ownerdate, 1, 4)
 ```
 
 ```{r}
-filtered_sales <- transform(filtered_sales, ownerdate = as.numeric(ownerdate))
+filtered_sales <- transform(filtered_sales, year_of_sale = as.numeric(year_of_sale))
+```
+
+```{r}
+filtered_sales$ownerdate <- lubridate::as_date(filtered_sales$ownerdate)
+```
+
+```{r}
+filtered_sales <- filtered_sales %>% 
+  rename(date = ownerdate)
 ```
 
 Split the centroid column into lat and lng.
@@ -103,10 +151,10 @@ For each remaining home, calculate a new column called "group", which is defined
 nearest_ah <- nearest_ah %>% 
   mutate(
     group = case_when(
-    dist <= .5 & year - ownerdate >= 2 & year - ownerdate <= 5 ~ 'pre',
-    dist <= .5 & year - ownerdate < 2 & year - ownerdate == 0 ~ 'mid',
-    dist <= .5 & ownerdate - year > 0 ~ 'post',
-    dist > .5 & year - ownerdate <= 5 ~ 'outside',
+    dist <= .5 & year - year_of_sale >= 2 & year - year_of_sale <= 5 ~ 'pre',
+    dist <= .5 & year - year_of_sale < 2 & year - year_of_sale == 0 ~ 'mid',
+    dist <= .5 & year_of_sale - year > 0 ~ 'post',
+    dist > .5 & year - year_of_sale <= 5 ~ 'outside',
     T ~ 'other'
     )
   ) %>% 
@@ -117,14 +165,31 @@ creating a tpost that is years sale occured after the houseing development
 ```{r}
 nearest_ah <- nearest_ah %>% 
   mutate(
-    tpost = if_else(group == 'post', ownerdate - year, 0)
+    tpost = if_else(group == 'post', year_of_sale - year, 0)
+    )
+```
+
+```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(
+    test = case_when(
+      dist > .5 & year_of_sale - year <= 5 & year_of_sale - year >= 0 ~ 'opost',
+      T ~ 'other'
+    )
+  )
+```
+
+```{r}
+nearest_ah <- nearest_ah %>% 
+  mutate(
+    opost = if_else(test == 'opost', year_of_sale - year, 0)
     )
 ```
 
 create an age column
 ```{r}
 nearest_ah <- nearest_ah %>% 
-  mutate(age = ownerdate - year_built) %>% 
+  mutate(age = year_of_sale - year_built) %>% 
   filter(age >= 0) %>% 
   drop_na(age)
 ```
@@ -132,7 +197,7 @@ nearest_ah <- nearest_ah %>%
 filter down to 5 years before or after
 ```{r}
 nearest_ah <- nearest_ah %>% 
-  filter(year - ownerdate <= 5 & ownerdate - year <= 5) %>% 
+  filter(year - year_of_sale <= 5 & year_of_sale - year <= 5) %>% 
   distinct() %>% 
   filter(amount <= 10000000)
 ```
@@ -141,14 +206,23 @@ nearest_ah <- nearest_ah %>%
 #quantile(nearest_ah$amount, probs = .75) + (IQR(nearest_ah$amount) * 1.5)
 ```
 
-Forming a liner model for the data
+
 ```{r}
 nearest_ah <- nearest_ah %>% 
   mutate(group = factor(group), tract = factor(tract))
+```
 
-simple_regression_model <- lm(amount ~ square_footage + age + group + ownerdate + tract, data = nearest_ah)
+Forming a liner model for the data
+```{r}
+simple_regression_model <- lm(amount ~ square_footage + age + relevel(group, ref = 'outside') + ownerdate + tpost + tract, data = nearest_ah)
 
 summary(simple_regression_model)
+```
+
+```{r}
+simple_regression_model_opost <- lm(amount ~ square_footage + age + relevel(group, ref = 'outside') + ownerdate + tpost + opost + tract, data = nearest_ah)
+
+summary(simple_regression_model_opost)
 ```
 
 ```{r}
@@ -166,6 +240,12 @@ summary(simple_regression_model_log)
 ```
 
 ```{r}
+simple_regression_model_log_opost <- lm(log(amount) ~ square_footage + age + relevel(group, ref = 'outside') + year_of_sale + tpost + opost + tract, data = nearest_ah %>% mutate(year_of_sale = factor(year_of_sale)))
+
+summary(simple_regression_model_log_opost)
+```
+
+```{r}
 nearest_ah %>%
   mutate(predicted = predict(simple_regression_model_log, newdata = nearest_ah)) %>%
   ggplot(aes(x = log(amount), y = predicted)) +
@@ -177,7 +257,26 @@ anova(simple_regression_model_log)
 ```
 
 ```{r}
-st_write(nearest_ah, "../data/filtered_ah.csv", row.names = F)
+anova(simple_regression_model_log_opost)
+```
+
+```{r}
+nearest_ah <- nearest_ah %>% 
+  st_drop_geometry() %>% 
+  select(-geometry)
+```
+
+```{r}
+inner_join(nearest_ah, date, by = 'apn')
+```
+
+```{r}
+nearest_ah
+```
+
+
+```{r}
+write.csv(nearest_ah, "../data/filtered_ah.csv", row.names = F)
 ```
 
 
