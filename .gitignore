@@ -6,6 +6,9 @@
 /data
 /notebooks/affordable_housing_app/data
 
+#shiny.io folder
+/notebooks/affordable_housing_app/rsconnect
+
 # History files
 .Rhistory
 .Rapp.history

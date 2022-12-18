@@ -75,33 +75,19 @@ shinyServer(function(input, output) {
   })
   
   
-  output$graph_1 <- renderPlot({
-    
-      data_filtered() %>% 
-      group_by(ownerdate, group) %>% 
-      summarise(median_amt = median(amount)) %>% 
-      ggplot(aes(x = ownerdate, y = median_amt, color = group))+
-        geom_line()+
-        geom_point()
-  })
-
-  
-  output$distPlot <- renderPlot({
-    
-    data_filtered() %>% 
-      ggplot(aes(x = amount)) +
-      geom_histogram(bins = input$bins) +
-      labs(title = paste('Distribution of Home sale price for', input$ah_project_address))
-    
-  })
   
   output$plot <- renderPlot({
     data_filtered() %>% 
-      ggplot(aes(x = ownerdate, y = amount, color = group)) + 
+      ggplot(aes(x = as.Date(ownerdate), y = amount, color = group)) + 
+      xlab("Date of Home Sale")+
+      ylab("Sell Price ($)")+
       scale_y_log10() + 
       geom_point() + 
-      facet_wrap(~ prox) + 
-      geom_smooth(method = lm)
+      facet_wrap(~ prox) +
+      geom_smooth(method = lm)+
+      scale_x_date(date_labels = "%Y %b %d")+
+      theme(axis.text.x = element_text(angle = 45, vjust = .5))
+      
   })
   
   output$mymap <- renderLeaflet({

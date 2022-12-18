@@ -3,6 +3,7 @@ library(tidyverse)
 library(shinydashboard)
 library(leaflet)
 library(sf)
+options(scipen = 10000)
 
 # data <- read.csv("data/filtered_ah_data.csv")
 data <- readRDS("data/nearli_5yr_sales.rds")
@@ -35,14 +36,15 @@ ah_address_and_ID <- tibble(address, ID) %>%
   filter(ID %in% c("All", unique_ah_ids$id))
 
 
+prop_near_dev <- readRDS("data/properties.rds")
+prop_near_dev <- prop_near_dev %>% mutate(across('HUD_ID', str_replace, 'BARNES00', 'B'))
+
 dev <- readRDS("data/dev.rds")
 dev <- dev %>% mutate(across('HUD_ID', str_replace, 'BARNES00', 'B'))%>%
   filter(HUD_ID %in% (prop_near_dev%>%
                         pull(HUD_ID)%>%
                         unique()))
 
-prop_near_dev <- readRDS("data/properties.rds")
-prop_near_dev <- prop_near_dev %>% mutate(across('HUD_ID', str_replace, 'BARNES00', 'B'))
 
 sf_circles <- st_buffer(dev, dist = 804.5)
 sf_circles <- sf_circles %>% 
