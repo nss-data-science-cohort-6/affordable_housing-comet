@@ -1,8 +1,10 @@
 #HTML files
 *.html
 *.nb
-#Data folder
-/Data
+
+#Data folders
+/data
+/notebooks/affordable_housing_app/data
 
 # History files
 .Rhistory

@@ -11,46 +11,47 @@
 # Define UI for application that draws a histogram
 shinyUI(
   
-  dashboardPage(
-    
-    dashboardHeader(title = "Affordable Housing Anaylsis"),
-    
-    dashboardSidebar(
-      
-      selectInput(
-        "ah_project_address",
-        "Select an AH project:",
-        choices = ah_address_and_ID$address
-      ),
-      
-      sliderInput("bins",
-                  "Number of bins for home price histogram:",
-                  min = 1,
-                  max = 50,
-                  value = 30)
-      
-    ),
-    
-    
-    dashboardBody(
-      #geom_smooth for scatter of home prices, vertical line to show when ah project was put up 
-      
-      fluidRow(
-        column(
-          width = 6,
-          plotOutput("graph_1")
-        ),
-        column(
-          width = 6,
-          plotOutput("distPlot")
-          
-        )
-      ),
-      
-      fluidRow(
-        dataTableOutput("filtered_table")
-        )
-    )
+  navbarPage(title = "Affordable Housing Anaylsis",
+             
+             tabPanel(title = "Graphs",
+                      
+                      
+                      dashboardSidebar(
+                        
+                        selectInput(
+                          "ah_project_address",
+                          "Select an AH project:",
+                          choices = ah_address_and_ID$address
+                        )
+                      ),
+                      
+                      dashboardBody(
+                        #geom_smooth for scatter of home prices, vertical line to show when ah project was put up 
+                        
+                        fluidRow(
+                         
+                          column(
+                            width = 12,
+                            plotOutput("plot")
+                            
+                          )
+                        ),
+                        
+                        fluidRow(
+                          dataTableOutput("filtered_table"),style = "height:500px; overflow-y: scroll;overflow-x: scroll;"
+                        )
+                      )
+             ),
+             tabPanel(title = "Map",
+                      
+                      dashboardBody(
+                        # tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+                  
+                        leafletOutput("mymap")
+                        
+                      )
+             )
   )
+  
   
 )
