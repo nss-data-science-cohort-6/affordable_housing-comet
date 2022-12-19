@@ -6,7 +6,7 @@ library(sf)
 options(scipen = 10000)
 
 # data <- read.csv("data/filtered_ah_data.csv")
-data <- readRDS("data/nearli_5yr_sales.rds")
+data <- readRDS("data/nearli_sales.rds")
 LIHTC_data <- read.csv("data/LIHTC_updated.csv")
 barnes_data <- read.csv("data/barnes.csv") %>% 
   mutate(ID = c("B1","B2","B3","B4","B5","B6","B7","B8","B9"))
