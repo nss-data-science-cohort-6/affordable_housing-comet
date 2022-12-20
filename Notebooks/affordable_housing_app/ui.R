@@ -12,24 +12,24 @@
 shinyUI(
   
   navbarPage(title = "Affordable Housing Anaylsis",
-             
+             dashboardSidebar(
+               
+               selectInput(
+                 "ah_project_address",
+                 "Select an AH project:",
+                 choices = ah_address_and_ID$address
+               )
+             ),
              tabPanel(title = "Graphs",
                       
                       
-                      dashboardSidebar(
-                        
-                        selectInput(
-                          "ah_project_address",
-                          "Select an AH project:",
-                          choices = ah_address_and_ID$address
-                        )
-                      ),
+                      
                       
                       dashboardBody(
                         #geom_smooth for scatter of home prices, vertical line to show when ah project was put up 
                         
                         fluidRow(
-                         
+                          
                           column(
                             width = 12,
                             plotOutput("plot")
@@ -44,9 +44,10 @@ shinyUI(
              ),
              tabPanel(title = "Map",
                       
+                      
                       dashboardBody(
                         # tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
-                  
+                        
                         leafletOutput("mymap")
                         
                       )

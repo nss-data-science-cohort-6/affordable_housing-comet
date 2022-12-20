@@ -7,25 +7,24 @@
 #    http://shiny.rstudio.com/
 #
 
-
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
-
+  
   data_filtered <- reactive({
     
     ah_id <- ah_address_and_ID %>% 
-              filter(address == input$ah_project_address) %>% 
-              select(ID)
+      filter(address == input$ah_project_address) %>% 
+      select(ID)
     if (ah_id == 'All'){
       data_filtered <- data
     }
     else {
-
-    data_filtered <- data %>% 
-      filter(id == ah_id[[1,1]])}
+      
+      data_filtered <- data %>% 
+        filter(id == ah_id[[1,1]])}
     
   })
-
+  
   dev_filtered <- reactive({
     
     ah_id <- ah_address_and_ID %>% 
@@ -37,8 +36,8 @@ shinyServer(function(input, output) {
     }
     else {
       
-    dev_filtered <- dev %>% 
-      filter(HUD_ID == ah_id[[1,1]])}
+      dev_filtered <- dev %>% 
+        filter(HUD_ID == ah_id[[1,1]])}
     
   })
   sf_circles_filtered <- reactive({
@@ -50,9 +49,9 @@ shinyServer(function(input, output) {
       sf_circles_filtered <- sf_circles
     }
     else {
-    
-    sf_circles_filtered <- sf_circles %>% 
-      filter(HUD_ID == ah_id[[1,1]])}
+      
+      sf_circles_filtered <- sf_circles %>% 
+        filter(HUD_ID == ah_id[[1,1]])}
     
   })
   prop_near_dev_filtered <- reactive({
@@ -64,14 +63,17 @@ shinyServer(function(input, output) {
       prop_near_dev_filtered <- prop_near_dev
     }
     else {
+      
+      prop_near_dev_filtered <- prop_near_dev %>% 
+        filter(HUD_ID == ah_id[[1,1]])}
     
-    prop_near_dev_filtered <- prop_near_dev %>% 
-      filter(HUD_ID == ah_id[[1,1]])}
-  
   })
   
   output$filtered_table <- renderDataTable({
-    data_filtered()
+    data_filtered() %>% 
+      select(-amount, -id, -prox) %>% 
+      rename(`Sale Date` = ownerdate,
+             `Sale Group` = group)
   })
   
   
@@ -87,7 +89,17 @@ shinyServer(function(input, output) {
       geom_smooth(method = lm)+
       scale_x_date(date_labels = "%Y %b %d")+
       theme(axis.text.x = element_text(angle = 45, vjust = .5))
-      
+    
+  })
+  
+  r_zoom <- reactive({
+    if (input$ah_project_address == 'All') {
+      return(10)
+    }
+    
+    else {
+      return(13)
+    }
   })
   
   output$mymap <- renderLeaflet({
@@ -95,11 +107,19 @@ shinyServer(function(input, output) {
     ### REPLACE LEAFLET CODE ###
     leaflet(options = leafletOptions(minZoom = 6)) %>%
       addProviderTiles(provider = "CartoDB.Positron") %>%
-      setView(lng = -86.7816, lat = 36.1627, zoom = 10) %>%
-      setMaxBounds(lng1 = -86.7816 + 1, 
-                   lat1 = 36.1627 + 1, 
-                   lng2 = -86.7816 - 1, 
-                   lat2 = 36.1627 - 1) %>%
+      setView(lng = mean(prop_near_dev_filtered()$lon),
+              lat = mean(prop_near_dev_filtered()$lat)+.01,
+              zoom = r_zoom()) %>%
+      setMaxBounds(lng1 = max(prop_near_dev_filtered()$lon) + 1,
+                   lat1 = max(prop_near_dev_filtered()$lat) + 1,
+                   lng2 = min(prop_near_dev_filtered()$lon) - 1,
+                   lat2 = min(prop_near_dev_filtered()$lat) - 1) %>%
+      # 
+      #  setView(lng = -86.7816, lat = 36.1627, zoom = 10) %>%
+      # setMaxBounds(lng1 = -86.7816 + 1, 
+      #              lat1 = 36.1627 + 1, 
+      #              lng2 = -86.7816 - 1, 
+      #              lat2 = 36.1627 - 1) %>%
       addPolygons(data = sf_circles_filtered(), 
                   weight = 1, 
                   opacity = 0.5)%>%
